@@ -1,0 +1,136 @@
+output: default
+groups:
+  Iypme7:
+    description: Extract and clean critical fields [Can be replaced with Grok function]
+    name: Extract Critical Fields
+    index: 2
+asyncFuncTimeout: 1000
+functions:
+  - id: comment
+    filter: "true"
+    disabled: null
+    conf:
+      comment: >-
+        Parse Apache ActiveMQ logs for easier searching. In addition to
+        extracting critical key/value pairs, remove any non-value add characters
+        and/or fields, to reduce log size before ingest.
+
+
+        Author: Carley Rosato
+
+        Date:   2021-07-01
+
+        Notes:  Come find me on Slack - https://cribl.io/community - cribl-community.slack.com
+  - id: comment
+    filter: "true"
+    disabled: null
+    conf:
+      comment: Extract critical fields from _raw and reformat
+  - id: serde
+    filter: "true"
+    disabled: false
+    conf:
+      mode: extract
+      type: delim
+      delimChar: "|"
+      quoteChar: '"'
+      escapeChar: \
+      nullValue: "-"
+      srcField: _raw
+      fields:
+        - timestamp
+        - level
+        - message
+        - caller
+        - thread
+    description: Extract fields from _raw
+    groupId: Iypme7
+  - id: eval
+    filter: "true"
+    disabled: false
+    conf:
+      add:
+        - name: caller
+          value: caller.trimLeft().trimRight()
+        - name: level
+          value: level.trimLeft().trimRight()
+        - name: message
+          value: message.trimLeft().trimRight()
+        - name: thread
+          value: thread.trimLeft().trimRight()
+    description: Remove leading and trailing blank space from fields
+    groupId: Iypme7
+  - id: comment
+    filter: "true"
+    disabled: null
+    conf:
+      comment: "[OPTIONAL] Reduce the number of non-value add logs retained"
+  - id: sampling
+    filter: level=='DEBUG'
+    disabled: true
+    conf:
+      rules:
+        - filter: level=='DEBUG'
+          rate: 100
+    description: "[CUSTOMIZE] Retain 1 our of every 100 debug level logs"
+  - id: dynamic_sampling
+    filter: level=='DEBUG'
+    disabled: true
+    conf:
+      mode: sqrt
+      keyExpr: "`${level}`"
+      samplePeriod: 30
+      minEvents: 30
+      maxSampleRate: 100
+    description: "[CUSTOMIZE] Alternate to Static Sampling function above. Allows for
+      adjusting sampling rates based on incoming data volume "
+  - id: suppress
+    filter: level=='INFO'
+    disabled: true
+    conf:
+      allow: 1
+      suppressPeriodSec: 30
+      dropEventsMode: true
+      maxCacheSize: 50000
+      cacheIdleTimeoutPeriods: 2
+      numEventsIdleTimeoutTrigger: 10000
+      keyExpr: "`${level}-${caller}`"
+    description: "[CUSTOMIZE] Allow 1 event every 30 seconds for info level logs carrying
+      out actions under the same caller"
+  - id: comment
+    filter: "true"
+    disabled: null
+    conf:
+      comment: Convert to JSON and Serialize
+  - id: serialize
+    filter: "true"
+    disabled: false
+    conf:
+      type: json
+      dstField: _raw
+      fields:
+        - "!_*"
+        - "!cribl_breaker"
+        - "*"
+    description: Convert to JSON and push cleaned fields into _raw
+  - id: eval
+    filter: "true"
+    disabled: false
+    conf:
+      add:
+        - name: _raw
+          value: JSON.parse(_raw)
+      keep:
+        - _*
+      remove:
+        - "*"
+        - cribl*
+    description: JSON parse _raw to an object
+  - id: eval
+    filter: "true"
+    disabled: false
+    conf:
+      keep: []
+      remove:
+        - _raw.timestamp
+    description: "[OPTIONAL] Remove non-value add fields from the events"

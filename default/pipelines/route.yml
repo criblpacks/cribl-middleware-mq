@@ -1,0 +1,39 @@
+id: default
+groups: {}
+routes:
+  - id: LdQZc3
+    name: Rabbit_MQ
+    final: true
+    disabled: false
+    pipeline: Rabbit_MQ
+    description: Processing of RabbitMQ logs
+    clones: []
+    filter: _raw.startsWith(/\d+-\d+-\d+\s\d+:\d+:\d+.\d+ \[/)
+    output: default
+  - id: KsssLY
+    name: IBM_MQ
+    final: true
+    disabled: false
+    pipeline: IBM_MQ
+    description: Processing of IBM MQ (formerly Websphere) logs
+    clones: []
+    filter: _raw.startsWith(/\d+\/\d+\/\d+\s\d+:\d+:\d+\s\-\sProcess\s\(/)
+    output: default
+  - id: xY2E3N
+    name: Active_MQ
+    final: true
+    disabled: false
+    pipeline: Active_MQ
+    description: Processing of Apache ActiveMQ logs
+    clones: []
+    filter: _raw.startsWith(/\d+\-\d+\-\d+\s\d+:\d+:\d+,\d+\s\|/)
+    output: default
+  - id: default
+    name: default
+    final: true
+    disabled: false
+    pipeline: devnull
+    description: ""
+    clones: []
+    filter: "true"
+    output: default

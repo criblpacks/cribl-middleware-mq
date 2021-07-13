@@ -1,0 +1,238 @@
+output: default
+groups:
+  ErKxHi:
+    name: Extract Critical Fields
+    description: Extract fields from _raw
+    index: 2
+    disabled: false
+  snn2WI:
+    name: Reformat Fields
+    description: Clean fields by removing unnecessary characters and implementing
+      consistent formats
+    index: 3
+    disabled: false
+asyncFuncTimeout: 1000
+functions:
+  - id: comment
+    filter: "true"
+    disabled: null
+    conf:
+      comment: >-
+        Parse IBM Websphere (previously IBM MQ Series) error logs for easier
+        searching. In addition to extracting critical key/value pairs, remove
+        any non-value add characters and/or fields, to reduce log size before
+        ingest.
+
+
+        Author: Carley Rosato
+
+        Date:   2021-07-01
+
+        Notes:  Come find me on Slack - https://cribl.io/community - cribl-community.slack.com
+  - id: comment
+    filter: "true"
+    disabled: null
+    conf:
+      comment: Extract critical fields from _raw and reformat
+  - id: regex_extract
+    filter: "true"
+    disabled: false
+    conf:
+      source: _raw
+      iterations: 100
+      overwrite: false
+      regex: /(\s\-)(?<__Message>[\S\s]+)[\r\n\s]+AMQ/
+    groupId: ErKxHi
+    description: Create new field that includes everything above AMQ Message in _raw
+  - id: regex_extract
+    filter: "true"
+    disabled: false
+    conf:
+      source: __Message
+      iterations: 100
+      overwrite: false
+      regex: /(?<_KEY_0>(\s.+?\s))(?<_VALUE_0>\(.+?\))/gm
+      regexList: []
+    groupId: ErKxHi
+    description: Parse out the key/values into new fields
+  - id: regex_extract
+    filter: "true"
+    disabled: false
+    conf:
+      source: _raw
+      iterations: 100
+      overwrite: false
+      regex: /(?<Error_Code>(?:AMQ[0-9]{4}[A-Z]))/
+    groupId: ErKxHi
+    description: Extract the Error Code
+  - id: regex_extract
+    filter: "true"
+    disabled: false
+    conf:
+      source: _raw
+      iterations: 100
+      overwrite: false
+      regex: /(?<Message>(?<=AMQ[0-9]{4}[A-Z]:\s)[\s\S]*?(?=\.$))/gms
+    groupId: ErKxHi
+    description: Extract the Error Message
+  - id: regex_extract
+    filter: "true"
+    disabled: false
+    conf:
+      source: _raw
+      iterations: 100
+      overwrite: false
+      regex: /(EXPLANATION:\n)(?<Explanation>[\S\s]+)[\r\n\s]+ACTION/
+    groupId: ErKxHi
+    description: Extract Explanation Field
+  - id: regex_extract
+    filter: "true"
+    disabled: false
+    conf:
+      source: _raw
+      iterations: 100
+      overwrite: false
+      regex: /(?<_KEY_0>ACTION.*):\s(?<_VALUE_0>.*)/
+      regexList: []
+    groupId: ErKxHi
+    description: Extract Action field
+  - id: serialize
+    filter: "true"
+    disabled: false
+    conf:
+      type: json
+      dstField: CommentInsert
+      delimChar: ","
+      quoteChar: '"'
+      escapeChar: \
+      nullValue: "-"
+      fields:
+        - CommentInsert*
+    description: Convert many CommentInsert fields into one field
+    groupId: snn2WI
+  - id: eval
+    filter: "true"
+    disabled: false
+    conf:
+      add:
+        - name: CommentInsert
+          value: JSON.parse(CommentInsert)
+    groupId: snn2WI
+    description: JSON parse CommentInsert to an object
+  - id: rename
+    filter: "true"
+    disabled: false
+    conf:
+      wildcardDepth: 5
+      rename:
+        - currentName: ACTION
+          newName: Action
+        - currentName: VRMF
+          newName: Version
+        - currentName: CommentInsert
+          newName: Comment
+    groupId: snn2WI
+    description: Rename fields for simpler searches [RENAME NESTED COMMENTINSERT]
+  - id: rename
+    filter: "true"
+    disabled: false
+    conf:
+      wildcardDepth: 5
+      baseFields:
+        - Comment
+      renameExpr: name.replace(/CommentInsert/,'')
+    groupId: snn2WI
+    description: Collapse verbose nested CommentInsert fields
+  - id: eval
+    filter: "true"
+    disabled: false
+    conf:
+      add:
+        - name: Explanation
+          value: Explanation.replace(/-/g,'').replace(/\s\n/g,' ').replace(/\s\s/g,'
+            ').replace(/\n/g,' ')
+        - name: Host
+          value: Host.replace(/\(/,'').replace(/\)/,'')
+        - name: Installation
+          value: Installation.replace(/\(/,'').replace(/\)/,'')
+        - name: Process
+          value: Process.replace(/\(/,'').replace(/\)/,'')
+        - name: Program
+          value: Program.replace(/\(/,'').replace(/\)/,'')
+        - name: QMgr
+          value: QMgr.replace(/\(/,'').replace(/\)/,'')
+        - name: Time
+          value: Time.replace(/\(/,'').replace(/\)/,'')
+        - name: User
+          value: User.replace(/\(/,'').replace(/\)/,'')
+        - name: Version
+          value: Version.replace(/\(/,'').replace(/\)/,'')
+      remove:
+        - CommentInsert1
+        - CommentInsert2
+        - CommentInsert3
+    groupId: snn2WI
+    description: Remove extra characters from fields
+  - id: comment
+    filter: "true"
+    disabled: null
+    conf:
+      comment: "[OPTIONAL] Reduce the number of non-value add logs retained"
+  - id: sampling
+    filter: "true"
+    disabled: true
+    conf:
+      rules:
+        - filter: Error_Code.includes('I')
+          rate: 100
+    description: "[CUSTOMIZE] Retain 1 out of every 100 info level logs"
+  - id: suppress
+    filter: Error_Code.includes('I')
+    disabled: true
+    conf:
+      allow: 1
+      suppressPeriodSec: 30
+      dropEventsMode: true
+      maxCacheSize: 50000
+      cacheIdleTimeoutPeriods: 2
+      numEventsIdleTimeoutTrigger: 10000
+      keyExpr: "`${Error_Code}-${Message}`"
+    description: "[CUSTOMIZE] Allow 1 event every 30 seconds for info level logs carrying
+      out the same action"
+  - id: comment
+    filter: "true"
+    disabled: null
+    conf:
+      comment: Convert to JSON and Serialize
+  - id: serialize
+    filter: "true"
+    disabled: false
+    conf:
+      type: json
+      dstField: _raw
+      fields:
+        - "!_*"
+        - "!cribl_breaker"
+        - "*"
+    description: Convert to JSON and push cleaned fields into _raw
+  - id: eval
+    filter: "true"
+    disabled: false
+    conf:
+      add:
+        - name: _raw
+          value: JSON.parse(_raw)
+      keep:
+        - _*
+      remove:
+        - "*"
+        - cribl*
+    description: JSON parse _raw to an object
+  - id: eval
+    filter: "true"
+    disabled: false
+    conf:
+      remove:
+        - _raw.Time
+      keep: []
+    description: "[OPTIONAL] Remove non-value add fields from the events"
