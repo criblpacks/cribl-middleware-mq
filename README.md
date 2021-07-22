@@ -9,7 +9,7 @@ Before you begin, ensure that you have met the following requirements:
 
 **Event Breakers**
 
-IBM MQ logs will require a Timestamp event breaker type.  RabbitMQ and ActiveMQ can use the default Break on Newline, however if you would like to keep logs consistent, all can be broken with a Timestamp Event Breaker.
+IBM MQ logs require event breaking that does not use traditional new line breakers in Syslog messages. If you are sending via TCP, you may be able to configure using the Raw TCP source to add a custom event breaker on ingest.  RabbitMQ and ActiveMQ can use the default Break on Newline.
 
 **IBM MQ Note**
 

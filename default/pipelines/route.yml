@@ -8,7 +8,7 @@ routes:
     pipeline: Rabbit_MQ
     description: Processing of RabbitMQ logs
     clones: []
-    filter: _raw.startsWith(/\d+-\d+-\d+\s\d+:\d+:\d+.\d+ \[/)
+    filter: /\d+-\d+-\d+\s\d+:\d+:\d+.\d+ \[/.test(_raw)
     output: default
   - id: KsssLY
     name: IBM_MQ
@@ -17,7 +17,7 @@ routes:
     pipeline: IBM_MQ
     description: Processing of IBM MQ (formerly Websphere) logs
     clones: []
-    filter: _raw.startsWith(/\d+\/\d+\/\d+\s\d+:\d+:\d+\s\-\sProcess\s\(/)
+    filter: /\d+\/\d+\/\d+\s\d+:\d+:\d+\s\-\sProcess\s\(/.test(_raw)
     output: default
   - id: xY2E3N
     name: Active_MQ
@@ -26,7 +26,7 @@ routes:
     pipeline: Active_MQ
     description: Processing of Apache ActiveMQ logs
     clones: []
-    filter: _raw.startsWith(/\d+\-\d+\-\d+\s\d+:\d+:\d+,\d+\s\|/)
+    filter: /\d+\-\d+\-\d+\s\d+:\d+:\d+,\d+\s\|/.test(_raw)
     output: default
   - id: default
     name: default

@@ -187,7 +187,7 @@ functions:
           rate: 100
     description: "[CUSTOMIZE] Retain 1 out of every 100 info level logs"
   - id: suppress
-    filter: Error_Code.includes('I')
+    filter: Error_Code.endsWith('I')
     disabled: true
     conf:
       allow: 1
